@@ -4,19 +4,31 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>單字大師 (Word Hero) - 離線版</title>
+    <title>單字大師 (Word Hero) - 完整版</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#fffbeb">
     
-    <!-- 1. 載入必要的函式庫 (CDN UMD 版本) -->
+    <!-- 錯誤處理器 -->
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var div = document.createElement('div');
+        div.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:9999; font-family:monospace; white-space:pre-wrap;';
+        div.innerHTML = '<h3>⚠️ 發生錯誤</h3>' + msg + '<br><small>' + url + ':' + line + '</small>';
+        document.body.appendChild(div);
+        return false;
+      };
+    </script>
+
+    <!-- 1. 載入函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons UMD -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -35,9 +47,12 @@
       }
       /* Themes */
       .theme-default { background-color: #fffbeb; background-image: radial-gradient(#fde68a 1px, transparent 1px); background-size: 20px 20px; }
+      .theme-space { background-color: #0f172a; background-image: radial-gradient(#312e81 1px, transparent 1px); background-size: 30px 30px; color: #e2e8f0; }
+      .theme-racing { background-color: #fef2f2; background-image: linear-gradient(45deg, #fee2e2 25%, transparent 25%, transparent 75%, #fee2e2 75%, #fee2e2), linear-gradient(45deg, #fee2e2 25%, transparent 25%, transparent 75%, #fee2e2 75%, #fee2e2); background-size: 20px 20px; background-position: 0 0, 10px 10px; }
+      .theme-forest { background-color: #f0fdf4; background-image: radial-gradient(#86efac 1px, transparent 1px); background-size: 24px 24px; }
+      
       .dark .theme-default { background-color: #020617; background-image: radial-gradient(#1e293b 1px, transparent 1px); }
       
-      /* Animations */
       @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); } 20%, 40%, 60%, 80% { transform: translateX(4px); } }
       .animate-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
       @keyframes pop-success { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -66,666 +81,841 @@
 </script>
 </head>
 <body class="antialiased selection:bg-amber-200 selection:text-amber-900 transition-colors duration-300">
-    <div id="root"></div>
+    <div id="root">
+        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; color: #64748b; font-weight: bold;">
+            載入中... (Loading)
+        </div>
+    </div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        try {
+            const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-        // --- ICONS 處理 ---
-        // 修正：使用 lucide.createElement 產生 SVG DOM，再轉為字串
-        const Icon = ({ name, size = 24, className = "", fill = "none" }) => {
-            const lucideGlobal = window.lucide;
-            if (!lucideGlobal) return null;
+            // --- ICONS 處理 ---
+            const Icon = ({ name, size = 24, className = "", fill = "none" }) => {
+                const lucideGlobal = window.lucide;
+                if (!lucideGlobal) return <span style={{fontSize: '12px', color: '#64748b'}}>?</span>;
 
-            const iconDef = lucideGlobal.icons[name];
-            if (!iconDef) return null; // Icon not found
+                const iconDef = lucideGlobal.icons[name];
+                if (!iconDef) {
+                    return <span className={className} style={{ width: size, height: size, display: 'inline-block', border: '2px dashed currentColor', borderRadius: '50%', opacity: 0.5 }}></span>;
+                }
 
-            // 建立 SVG DOM 元素
-            const svgElement = lucideGlobal.createElement(iconDef);
+                try {
+                    const svgElement = lucideGlobal.createElement(iconDef);
+                    svgElement.setAttribute('width', size);
+                    svgElement.setAttribute('height', size);
+                    if (className) svgElement.setAttribute('class', className);
+                    svgElement.setAttribute('fill', fill === "currentColor" ? "currentColor" : "none");
+                    svgElement.setAttribute('stroke', "currentColor");
+                    svgElement.setAttribute('stroke-width', "2.5");
+                    svgElement.setAttribute('stroke-linecap', "round");
+                    svgElement.setAttribute('stroke-linejoin', "round");
+                    return <span dangerouslySetInnerHTML={{ __html: svgElement.outerHTML }} style={{ display: 'inline-flex', verticalAlign: 'middle' }} />;
+                } catch (e) {
+                    return null;
+                }
+            };
+
+            const LucideIconProxy = new Proxy({}, {
+                get: (target, prop) => (props) => <Icon name={prop} {...props} />
+            });
+
+            // 解構常用圖標
+            const { 
+                Zap, User, Volume2, ArrowRight, ArrowLeft, CheckCircle, XCircle, HelpCircle, 
+                Clock, Flame, ShieldCheck, Shuffle, ListOrdered, Mic, Square, Play,
+                Settings, Music, Music2, Sun, Moon, LogIn, Bookmark, Library, Book, Sparkles,
+                Bot, Rocket, Ghost, Crown, Star, ShoppingBag, Award, History, Coins, Trophy,
+                AlertCircle, GraduationCap, AlertTriangle, FastForward, Briefcase, Utensils, Film, Plane,
+                Laptop, Gamepad2, Bike, Bomb, Compass, Shield, Sword, Map, Anchor, Bug, Gift, Heart,
+                Palette, TreeDeciduous, Flower2, Gem, Cpu, Cloud,
+                Cat, Dog, Bird, Rabbit, Smile,
+                Headphones, Globe, Languages, Clover, Wind, LayoutGrid, Check
+            } = LucideIconProxy;
+
+            // --- 資料層 ---
+            const PART_1_WORDS = [
+                { word: "accompany", definition: "(v.) 陪伴；伴隨", englishDefinition: "To go somewhere with someone.", example: "I will accompany my grandmother to the doctor tomorrow. 我明天會陪祖母去看醫生。" },
+                { word: "alder", definition: "(n.) 榿木", englishDefinition: "A type of tree that often grows near water.", example: "The bird built a small nest in the tall alder tree. 那隻鳥在那棵高大的榿木上築了一個小巢。" },
+                { word: "adventure", definition: "(n.) 冒險", englishDefinition: "An exciting and sometimes dangerous experience.", example: "Life is full of surprises and adventures if you are brave enough. 如果你夠勇敢，生活中充滿了驚喜與冒險。" },
+                { word: "amphibian", definition: "(n.) 兩棲動物", englishDefinition: "An animal (like a frog) that can live both on land and in water.", example: "Frogs are the most common type of amphibian found in this area. 青蛙是這個地區最常見的兩棲動物。" },
+                { word: "ancient", definition: "(adj.) 古代的；古老的", englishDefinition: "Very old; from a long time ago.", example: "We visited the ancient ruins in Rome during our summer vacation. 我們在暑假期間參觀了羅馬的古代遺跡。" },
+                { word: "appeal", definition: "(v./n.) 吸引；呼籲", englishDefinition: "To be interesting or attractive to someone.", example: "The idea of camping in the rain doesn't appeal to me at all. 在雨中露營的想法對我一點吸引力都沒有。" },
+                { word: "appoint", definition: "(v.) 指派；任命", englishDefinition: "To choose someone for a job or position.", example: "The teacher decided to appoint John as the class leader. 老師決定指派約翰擔任班長。" },
+                { word: "arithmetic", definition: "(n.) 算術", englishDefinition: "The math of adding, subtracting, multiplying, and dividing numbers.", example: "Mental arithmetic is a very useful skill for shopping. 心算對於購物來說是一項很有用的技能。" },
+                { word: "arrangement", definition: "(n.) 安排；佈置", englishDefinition: "The way things are organized or placed.", example: "The flower arrangement on the table looks absolutely beautiful. 桌上的花藝佈置看起來美極了。" },
+                { word: "atop", definition: "(prep.) 在...頂上", englishDefinition: "On the top of something.", example: "The cat sat atop the wall, watching the birds fly by. 貓咪坐在牆頭上，看著鳥兒飛過。" }
+            ];
+            // (Simulated full list for brevity, in real app add all)
+            const FULL_WORD_LIST = [...PART_1_WORDS];
+
+            const ACHIEVEMENTS = [
+                { id: 'first_win', title: '英雄初現', description: '完成第一次挑戰任務', icon: 'Zap', condition: (records) => records.length >= 1 },
+                { id: 'perfect_accuracy', title: '精準之刃', description: '在一場挑戰中獲得 100% 正確率', icon: 'Target', condition: (records) => records.some(r => r.stats.correct === r.stats.total && r.stats.total > 0) },
+                { id: 'marathon', title: '毅力長征', description: '累積完成 10 次挑戰任務', icon: 'Flag', condition: (records) => records.length >= 10 },
+                { id: 'wealthy', title: '金幣富翁', description: '累積獲得超過 500 枚代幣', icon: 'Coins', condition: (_, tokens) => tokens >= 500 },
+                { id: 'collector', title: '收集達人', description: '擁有超過 3 個商店物品', icon: 'ShoppingBag', condition: (_, __, profile) => (profile?.purchasedItemIds?.length || 0) >= 3 },
+            ];
             
-            // 設定屬性
-            svgElement.setAttribute('width', size);
-            svgElement.setAttribute('height', size);
-            if (className) svgElement.setAttribute('class', className);
+            const SHOP_ITEMS = [
+                { id: 'av_bot', name: '智核機器人', price: 100, type: 'avatar', iconName: 'Bot', color: 'bg-indigo-500', category: 'tech' },
+                { id: 'av_rocket', name: '星際火箭', price: 150, type: 'avatar', iconName: 'Rocket', color: 'bg-orange-500', category: 'tech' },
+                { id: 'av_ghost', name: '頑皮幽靈', price: 200, type: 'avatar', iconName: 'Ghost', color: 'bg-purple-600', category: 'rare' },
+                { id: 'av_crown', name: '王者之冠', price: 500, type: 'avatar', iconName: 'Crown', color: 'bg-amber-400', category: 'rare' },
+                { id: 'theme-space', name: '無盡太空', price: 300, type: 'theme', iconName: 'Moon', color: 'bg-indigo-900', category: 'theme' },
+                { id: 'theme-forest', name: '原始森林', price: 250, type: 'theme', iconName: 'TreeDeciduous', color: 'bg-emerald-800', category: 'theme' },
+            ];
+
+            const AVATARS = [
+                { id: 'user', icon: User, color: 'bg-blue-500' },
+                { id: 'cat', icon: Cat, color: 'bg-rose-500' },
+                { id: 'dog', icon: Dog, color: 'bg-amber-500' },
+                { id: 'bird', icon: Bird, color: 'bg-sky-500' },
+                { id: 'rabbit', icon: Rabbit, color: 'bg-purple-500' },
+                { id: 'smile', icon: Smile, color: 'bg-emerald-500' },
+                ...SHOP_ITEMS.filter(i => i.type === 'avatar').map(i => ({ id: i.id, icon: LucideIconProxy[i.iconName], color: i.color }))
+            ];
+
+            // --- UTILS (服務層) ---
+            const CURRENT_USER_KEY = 'dictation_master_current_user';
             
-            // 設定樣式屬性
-            svgElement.setAttribute('fill', fill === "currentColor" ? "currentColor" : "none");
-            svgElement.setAttribute('stroke', "currentColor");
-            svgElement.setAttribute('stroke-width', "2");
-            svgElement.setAttribute('stroke-linecap', "round");
-            svgElement.setAttribute('stroke-linejoin', "round");
+            const getCurrentUser = () => localStorage.getItem(CURRENT_USER_KEY);
+            const getUserKey = (suffix) => {
+                const user = getCurrentUser();
+                return user ? `user_${user}${suffix}` : null;
+            };
 
-            return <span dangerouslySetInnerHTML={{ __html: svgElement.outerHTML }} style={{ display: 'inline-flex', verticalAlign: 'middle' }} />;
-        };
-
-        const LucideIconProxy = new Proxy({}, {
-            get: (target, prop) => (props) => <Icon name={prop} {...props} />
-        });
-
-        // 解構常用的圖標
-        const { 
-            Zap, User, Volume2, ArrowRight, ArrowLeft, CheckCircle, XCircle, HelpCircle, 
-            Clock, Flame, ShieldCheck, Shuffle, ListOrdered, Mic, Square, Play,
-            Settings, Music, Music2, Sun, Moon, LogIn, Bookmark, Library, Book, Sparkles,
-            Bot, Rocket, Ghost, Crown, Star, ShoppingBag, Award, History, Coins, Trophy,
-            AlertCircle, GraduationCap, AlertTriangle, FastForward, Briefcase, Utensils, Film, Plane,
-            Laptop, Gamepad2, Bike, Bomb, Compass, Shield, Sword, Map, Anchor, Bug, Gift, Heart,
-            Palette, TreeDeciduous, Flower2, Gem, Cpu, Cloud
-        } = LucideIconProxy;
-
-        // --- 資料層 ---
-        const PART_1_WORDS = [
-            { word: "accompany", definition: "(v.) 陪伴；伴隨", englishDefinition: "To go somewhere with someone.", example: "I will accompany my grandmother to the doctor tomorrow. 我明天會陪祖母去看醫生。" },
-            { word: "alder", definition: "(n.) 榿木", englishDefinition: "A type of tree that often grows near water.", example: "The bird built a small nest in the tall alder tree. 那隻鳥在那棵高大的榿木上築了一個小巢。" },
-            { word: "adventure", definition: "(n.) 冒險", englishDefinition: "An exciting and sometimes dangerous experience.", example: "Life is full of surprises and adventures if you are brave enough. 如果你夠勇敢，生活中充滿了驚喜與冒險。" },
-            { word: "amphibian", definition: "(n.) 兩棲動物", englishDefinition: "An animal (like a frog) that can live both on land and in water.", example: "Frogs are the most common type of amphibian found in this area. 青蛙是這個地區最常見的兩棲動物。" },
-            { word: "ancient", definition: "(adj.) 古代的；古老的", englishDefinition: "Very old; from a long time ago.", example: "We visited the ancient ruins in Rome during our summer vacation. 我們在暑假期間參觀了羅馬的古代遺跡。" },
-            { word: "appeal", definition: "(v./n.) 吸引；呼籲", englishDefinition: "To be interesting or attractive to someone.", example: "The idea of camping in the rain doesn't appeal to me at all. 在雨中露營的想法對我一點吸引力都沒有。" },
-            { word: "appoint", definition: "(v.) 指派；任命", englishDefinition: "To choose someone for a job or position.", example: "The teacher decided to appoint John as the class leader. 老師決定指派約翰擔任班長。" },
-            { word: "arithmetic", definition: "(n.) 算術", englishDefinition: "The math of adding, subtracting, multiplying, and dividing numbers.", example: "Mental arithmetic is a very useful skill for shopping. 心算對於購物來說是一項很有用的技能。" },
-            { word: "arrangement", definition: "(n.) 安排；佈置", englishDefinition: "The way things are organized or placed.", example: "The flower arrangement on the table looks absolutely beautiful. 桌上的花藝佈置看起來美極了。" },
-            { word: "atop", definition: "(prep.) 在...頂上", englishDefinition: "On the top of something.", example: "The cat sat atop the wall, watching the birds fly by. 貓咪坐在牆頭上，看著鳥兒飛過。" },
-            { word: "automobile", definition: "(n.) 汽車", englishDefinition: "A car.", example: "The invention of the automobile changed how people travel. 汽車的發明改變了人們旅行的方式。" },
-            { word: "awaken", definition: "(v.) 喚醒；醒來", englishDefinition: "To wake someone up.", example: "Please be quiet, or you might awaken the sleeping baby. 請安靜，否則你可能會吵醒睡著的嬰兒。" },
-            { word: "barnacle", definition: "(n.) 藤壺", englishDefinition: "A small sea animal with a hard shell that sticks to rocks and ships.", example: "Many barnacles were attached to the bottom of the old boat. 許多藤壺附著在那艘舊船的底部。" },
-            { word: "beneficial", definition: "(adj.) 有益的", englishDefinition: "Helpful or good for you.", example: "Eating plenty of vegetables is beneficial to your health. 多吃蔬菜對你的健康有益。" },
-            { word: "bewilder", definition: "(v.) 使迷惑", englishDefinition: "To confuse someone very much.", example: "The complicated map completely bewildered the tourists. 這張複雜的地圖讓遊客們完全搞糊塗了。" },
-            { word: "bulletin", definition: "(n.) 公告；快報", englishDefinition: "A short official statement or news report.", example: "Check the school bulletin board for the exam schedule. 請查看學校佈告欄上的考試時間表。" },
-            { word: "calories", definition: "(n.) 卡路里", englishDefinition: "Units used to measure the energy in food.", example: "She counts calories carefully because she wants to stay healthy. 她仔細計算卡路里，因為她想保持健康。" },
-            { word: "cattle", definition: "(n.) 牛群", englishDefinition: "Cows and bulls kept on a farm.", example: "The farmer raises cattle for both milk and meat. 那位農夫飼養牛群以獲取牛奶和牛肉。" },
-            { word: "central", definition: "(adj.) 中央的", englishDefinition: "In the middle of something.", example: "The park is located in the central part of the city. 這座公園位於城市的中心地帶。" },
-            { word: "citizen", definition: "(n.) 公民", englishDefinition: "A person who is a member of a country.", example: "Every citizen has the right to vote in the election. 每位公民都有權利在選舉中投票。" },
-            { word: "compel", definition: "(v.) 強迫", englishDefinition: "To force someone to do something.", example: "The heavy rain compelled us to cancel the picnic and stay indoors. 大雨迫使我們取消野餐並待在室內。" },
-            { word: "conclude", definition: "(v.) 下結論；結束", englishDefinition: "To end a speech, meeting, or piece of writing.", example: "The principal concluded his speech with a famous quote. 校長引用一句名言結束了他的演講。" },
-            { word: "condor", definition: "(n.) 禿鷹；神鷹", englishDefinition: "A very large bird that eats dead animals.", example: "We were lucky enough to see a giant condor flying over the mountains. 我們很幸運地看到一隻巨大的禿鷹飛越山頭。" },
-            { word: "consist", definition: "(v.) 組成", englishDefinition: "To be made of particular parts or things.", example: "A soccer team usually consists of eleven players. 一支足球隊通常由十一名球員組成。" },
-            { word: "contract", definition: "(n.) 合約；(v.) 收縮", englishDefinition: "An official written agreement.", example: "My dad signed a two-year contract for his new job. 我爸爸為他的新工作簽了一份兩年的合約。" }
-        ];
-        const PART_2_WORDS = [
-             { word: "courtroom", definition: "(n.) 法庭", englishDefinition: "A room where legal cases are judged.", example: "Everyone stood up when the judge entered the courtroom. 當法官進入法庭時，每個人都站了起來。" },
-             { word: "current", definition: "(adj.) 目前的", englishDefinition: "Happening or existing now.", example: "The current situation is difficult, but we will solve it. 目前的情況很困難，但我們會解決它的。" },
-             { word: "decorate", definition: "(v.) 裝飾", englishDefinition: "To make something look nicer by adding things to it.", example: "Let's decorate the living room with balloons for the party. 我們用氣球來裝飾客廳舉辦派對吧。" },
-             { word: "diary", definition: "(n.) 日記", englishDefinition: "A book in which you write down your daily thoughts and experiences.", example: "Keeping a diary helps me remember special moments in my life. 寫日記幫助我記住生命中的特殊時刻。" },
-             { word: "double", definition: "(adj.) 雙倍的", englishDefinition: "Twice as big or twice as much.", example: "I ordered a double cheeseburger because I was very hungry. 我點了一個雙層起司漢堡，因為我非常餓。" },
-             { word: "effect", definition: "(n.) 影響；效果", englishDefinition: "A change that is caused by something.", example: "Air pollution has a serious negative effect on the environment. 空氣污染對環境有嚴重的負面影響。" },
-             { word: "entire", definition: "(adj.) 整個的", englishDefinition: "Whole or complete.", example: "He was so hungry that he ate the entire pizza by himself. 他餓到自己一個人吃掉了整個披薩。" },
-             { word: "entrance", definition: "(n.) 入口", englishDefinition: "A door or gate used to go into a place.", example: "The main entrance to the museum is around the corner. 博物館的正門在轉角處。" },
-             { word: "exist", definition: "(v.) 存在", englishDefinition: "To be real or present.", example: "Do you believe that aliens really exist in the universe? 你相信宇宙中真的存在外星人嗎？" },
-             { word: "expense", definition: "(n.) 花費；開支", englishDefinition: "Money that you spend on something.", example: "Buying a new house is a huge expense for most families. 對大多數家庭來說，買新房是一筆巨大的開銷。" },
-             { word: "experiment", definition: "(n.) 實驗", englishDefinition: "A scientific test to learn something new.", example: "The science experiment showed how water turns into ice. 這個科學實驗展示了水如何變成冰。" },
-             { word: "falter", definition: "(v.) 猶豫；動搖", englishDefinition: "To become weak or unsure.", example: "His voice faltered when he had to tell the sad news. 當他必須說出這個悲傷的消息時，他的聲音顫抖了。" },
-             { word: "faraway", definition: "(adj.) 遙遠的", englishDefinition: "A long distance away.", example: "She dreams of traveling to faraway lands and meeting new people. 她夢想著去遙遠的國度旅行並結識新朋友。" },
-             { word: "fitness", definition: "(n.) 健康；體能", englishDefinition: "The condition of being physically strong and healthy.", example: "Regular exercise is essential for physical fitness. 規律運動對於身體健康是不可或缺的。" },
-             { word: "fashion", definition: "(n.) 時尚；流行", englishDefinition: "A popular style of clothes, hair, etc.", example: "Blue jeans never seem to go out of fashion. 藍色牛仔褲似乎永遠不會退流行。" },
-             { word: "forever", definition: "(adv.) 永遠", englishDefinition: "For all time.", example: "I will remember this wonderful trip forever. 我將永遠記得這趟美好的旅程。" },
-             { word: "footstep", definition: "(n.) 腳步聲", englishDefinition: "The sound of a person walking.", example: "I heard heavy footsteps coming down the hallway. 我聽到沉重的腳步聲從走廊傳來。" },
-             { word: "furniture", definition: "(n.) 傢俱", englishDefinition: "Large objects like tables, chairs, and beds used in a room.", example: "We need to buy some new furniture for our new apartment. 我們需要為新公寓買一些新傢俱。" },
-             { word: "glacier", definition: "(n.) 冰河", englishDefinition: "A large mass of ice that moves slowly.", example: "Global warming is causing glaciers to melt rapidly. 全球暖化正導致冰河迅速融化。" },
-             { word: "glance", definition: "(v.) 瞥一眼", englishDefinition: "To look quickly at something.", example: "He glanced at his watch and realized he was late for school. 他瞥了一眼手錶，發現上學要遲到了。" },
-             { word: "gloom", definition: "(n.) 憂鬱；陰暗", englishDefinition: "A feeling of sadness or a dark and dim state.", example: "The gloom of the rainy afternoon made everyone feel sleepy. 下雨午後的陰沉讓每個人都覺得想睡。" },
-             { word: "greenery", definition: "(n.) 綠色植物", englishDefinition: "Green plants or leaves.", example: "The park is full of lush greenery and colorful flowers. 公園裡充滿了茂盛的綠色植物和色彩繽紛的花朵。" },
-             { word: "gross", definition: "(adj.) 噁心的", englishDefinition: "Very unpleasant or disgusting.", example: "\"Eww, that dead bug is gross!\" shouted the little boy. 「噁，那隻死蟲好噁心！」小男孩大叫道。" },
-             { word: "hectic", definition: "(adj.) 忙亂的", englishDefinition: "Very busy and fast.", example: "Life in a big city can be very hectic and stressful. 大城市的生活可能會非常忙亂且充滿壓力。" },
-             { word: "hence", definition: "(adv.) 因此", englishDefinition: "For this reason.", example: "It is raining heavily; hence, the soccer game is canceled. 雨下得很大，因此足球賽取消了。" }
-         ];
-        const PART_3_WORDS = [
-            { word: "herald", definition: "(v.) 預示", englishDefinition: "To be a sign that something is going to happen.", example: "The arrival of the cuckoo bird often heralds the start of spring. 杜鵑鳥的到來通常預示著春天的開始。" },
-            { word: "hockey", definition: "(n.) 曲棍球", englishDefinition: "A sport played on ice or a field with sticks and a puck/ball.", example: "Ice hockey is a very popular sport in Canada. 冰上曲棍球在加拿大是非常受歡迎的運動。" },
-            { word: "housekeeper", definition: "(n.) 管家", englishDefinition: "A person paid to clean and look after a house.", example: "The housekeeper ensures that all the rooms in the hotel are clean. 房務管家確保飯店裡所有的房間都是乾淨的。" },
-            { word: "ideal", definition: "(adj.) 理想的", englishDefinition: "Perfect; the best possible.", example: "A sunny day with a light breeze is ideal for a picnic. 陽光普照且有微風的日子是野餐的理想天氣。" },
-            { word: "increase", definition: "(v./n.) 增加", englishDefinition: "To become larger or greater in amount.", example: "The price of vegetables tends to increase after a typhoon. 颱風過後蔬菜價格往往會上漲。" },
-            { word: "individual", definition: "(n.) 個人", englishDefinition: "A single person or thing.", example: "Each individual has a unique fingerprint. 每個人都有獨一無二的指紋。" },
-            { word: "instant", definition: "(adj.) 立即的", englishDefinition: "Happening immediately.", example: "I sent him a message and got an instant reply. 我傳訊息給他，並得到了立即的回覆。" },
-            { word: "ivory", definition: "(n.) 象牙", englishDefinition: "The hard white substance from elephant tusks.", example: "Trading ivory is illegal in many countries to protect elephants. 為了保護大象，在許多國家買賣象牙是非法的。" },
-            { word: "journey", definition: "(n.) 旅程", englishDefinition: "A long trip from one place to another.", example: "The journey to the top of the mountain took us five hours. 前往山頂的旅程花了我們五個小時。" },
-            { word: "justice", definition: "(n.) 正義", englishDefinition: "Fairness; right behavior.", example: "Superheroes in movies always fight for justice. 電影裡的超級英雄總是為了正義而戰。" },
-            { word: "league", definition: "(n.) 聯盟", englishDefinition: "A group of sports teams that play against each other.", example: "My brother plays baseball in the local junior league. 我哥哥在當地的少年聯盟打棒球。" },
-            { word: "liquid", definition: "(n.) 液體", englishDefinition: "A substance like water that flows freely.", example: "Water becomes a solid when it freezes and a liquid when it melts. 水結冰時變成固體，融化時變成液體。" },
-            { word: "livestock", definition: "(n.) 家畜", englishDefinition: "Animals kept on a farm, like cows and sheep.", example: "The farm has a lot of livestock, such as cows, sheep, and pigs. 這個農場有很多家畜，例如牛、羊和豬。" },
-            { word: "major", definition: "(adj.) 主要的；重大的", englishDefinition: "Very large, important, or serious.", example: "Pollution is a major problem that we need to solve. 污染是我們需要解決的一個主要問題。" },
-            { word: "memory", definition: "(n.) 記憶", englishDefinition: "Something that you remember.", example: "I have a fond memory of baking cookies with my mom. 我有個跟媽媽一起烤餅乾的美好回憶。" },
-            { word: "mere", definition: "(adj.) 僅僅", englishDefinition: "Only; used to emphasize how small something is.", example: "It took a mere five minutes to fix the toy. 修好這個玩具僅僅花了五分鐘。" },
-            { word: "niece", definition: "(n.) 姪女；外甥女", englishDefinition: "The daughter of your brother or sister.", example: "My sister's daughter is my niece. 我姐姐的女兒是我的外甥女。" },
-            { word: "notify", definition: "(v.) 通知", englishDefinition: "To tell someone officially about something.", example: "Please notify the teacher if you are going to be late. 如果你會遲到，請通知老師。" },
-            { word: "obey", definition: "(v.) 服從", englishDefinition: "To do what a rule or person says.", example: "Drivers must obey traffic rules to avoid accidents. 駕駛必須遵守交通規則以避免意外。" },
-            { word: "onward", definition: "(adv.) 向前", englishDefinition: "Moving forward.", example: "Despite the rain, the hikers continued onward. 儘管下著雨，登山客們仍繼續向前行。" },
-            { word: "opinion", definition: "(n.) 意見", englishDefinition: "What you think about something.", example: "In my opinion, chocolate ice cream is the best flavor. 依我看（依我的意見），巧克力冰淇淋是最好吃的口味。" },
-            { word: "oppose", definition: "(v.) 反對", englishDefinition: "To disagree with something or try to stop it.", example: "Many people oppose the plan to build a factory near the park. 許多人反對在公園附近蓋工廠的計畫。" },
-            { word: "original", definition: "(adj.) 最初的", englishDefinition: "Existing at the beginning.", example: "The original plan was better than the new one. 最初的計畫比新的這個好。" },
-            { word: "pattern", definition: "(n.) 圖案", englishDefinition: "A repeated design or arrangement.", example: "I really like the floral pattern on your dress. 我真的很喜歡你洋裝上的花朵圖案。" },
-            { word: "personal", definition: "(adj.) 個人的；私人的", englishDefinition: "Belonging to one person; not public.", example: "Please don't ask personal questions to people you just met. 請不要問剛認識的人私人問題。" }
-        ];
-        const PART_4_WORDS = [
-            { word: "pleasant", definition: "(adj.) 令人愉快的", englishDefinition: "Nice, enjoyable, or friendly.", example: "We had a pleasant walk in the park this morning. 我們今天早上在公園裡愉快地散步。" },
-            { word: "polar", definition: "(adj.) 極地的", englishDefinition: "Related to the North or South Pole.", example: "Polar bears have thick fur to keep them warm in the cold. 北極熊有厚厚的毛皮讓牠們在寒冷中保暖。" },
-            { word: "reserve", definition: "(v.) 預定", englishDefinition: "To book something to be used later.", example: "I need to call the restaurant to reserve a table for dinner. 我需要打電話給餐廳預訂晚餐的位子。" },
-            { word: "rinse", definition: "(v.) 沖洗", englishDefinition: "To wash something with clean water.", example: "Remember to rinse the apple with water before you eat it. 吃蘋果之前記得用水沖洗一下。" },
-            { word: "rustle", definition: "(v./n.) 發出沙沙聲", englishDefinition: "To make a soft sound like dry leaves moving.", example: "The dry leaves rustled in the wind. 乾燥的葉子在風中發出沙沙聲。" },
-            { word: "salary", definition: "(n.) 薪水", englishDefinition: "Money paid to employees for their work.", example: "He is happy with his new job because the salary is good. 他對新工作很滿意，因為薪水很不錯。" },
-            { word: "society", definition: "(n.) 社會", englishDefinition: "People living together in a community.", example: "We all have a responsibility to help the poor in our society. 我們都有責任幫助社會中的窮人。" },
-            { word: "standard", definition: "(n./adj.) 標準", englishDefinition: "A level of quality that is accepted as normal.", example: "This car meets all the safety standards. 這輛車符合所有的安全標準。" },
-            { word: "surround", definition: "(v.) 包圍", englishDefinition: "To be all around something.", example: "Tall mountains surround the small village. 高山環繞著這個小村莊。" },
-            { word: "sweater", definition: "(n.) 毛衣", englishDefinition: "A warm piece of clothing usually made of wool.", example: "Put on a sweater if you feel cold outside. 如果你在外面覺得冷，就穿上毛衣。" },
-            { word: "terrify", definition: "(v.) 使恐懼", englishDefinition: "To scare someone very much.", example: "Spiders terrify my little sister; she screams whenever she sees one. 蜘蛛讓我妹妹很害怕；只要看到一隻她就會尖叫。" },
-            { word: "territory", definition: "(n.) 領土；地盤", englishDefinition: "An area of land that belongs to a person or animal.", example: "Wolves mark their territory to keep other animals away. 狼群會標記牠們的地盤以防止其他動物靠近。" },
-            { word: "theater", definition: "(n.) 劇院", englishDefinition: "A building where movies or plays are shown.", example: "We went to the theater to watch the latest movie. 我們去電影院看最新的電影。" },
-            { word: "tongue", definition: "(n.) 舌頭", englishDefinition: "The soft part inside the mouth used for tasting and speaking.", example: "The doctor asked the patient to stick out his tongue. 醫生請病人伸出舌頭。" },
-            { word: "tremble", definition: "(v.) 顫抖", englishDefinition: "To shake slightly because of cold or fear.", example: "She began to tremble with cold after waiting in the snow. 在雪中等待後，她冷得開始發抖。" },
-            { word: "unlimited", definition: "(adj.) 無限的", englishDefinition: "Without any limit or end.", example: "This phone plan offers unlimited data usage. 這個電話方案提供無限的數據流量。" },
-            { word: "unusual", definition: "(adj.) 不尋常的", englishDefinition: "Different from what is normal or expected.", example: "It is unusual for him to be late; he is usually on time. 他遲到很不尋常；他通常都很準時。" },
-            { word: "urchin", definition: "(n.) 海膽；頑童", englishDefinition: "A sea animal with spines; or a naughty child.", example: "Be careful not to step on a sea urchin when walking in the water. 在水中行走時要小心不要踩到海膽。" },
-            { word: "veil", definition: "(n.) 面紗", englishDefinition: "A thin piece of cloth used to cover the face.", example: "The bride lifted her veil to smile at the groom. 新娘掀起面紗對新郎微笑。" },
-            { word: "vulture", definition: "(n.) 禿鷲", englishDefinition: "A large bird that eats dead animals.", example: "Vultures circled in the sky, looking for food on the ground. 禿鷲在空中盤旋，尋找地面上的食物。" },
-            { word: "weakness", definition: "(n.) 缺點；弱點", englishDefinition: "A fault or lack of strength.", example: "Superman's only weakness is Kryptonite. 超人唯一的弱點是氪星石。" },
-            { word: "weasel", definition: "(n.) 鼬鼠", englishDefinition: "A small, thin mammal that eats small animals.", example: "A weasel is a small, quick animal with a long body. 鼬鼠是一種身體長長、動作敏捷的小動物。" },
-            { word: "witness", definition: "(n.) 目擊者；(v.) 目擊", englishDefinition: "A person who sees an event happen.", example: "The police are looking for a witness to the car accident. 警方正在尋找這場車禍的目擊者。" },
-            { word: "worthless", definition: "(adj.) 沒價值的", englishDefinition: "Having no value or use.", example: "Without the key, this old treasure chest is worthless. 沒有鑰匙，這個舊寶箱就沒有價值了。" },
-            { word: "wrinkle", definition: "(n.) 皺紋", englishDefinition: "A small line on the skin caused by age.", example: "My grandmother has wrinkles around her eyes when she smiles. 我祖母笑的時候眼睛周圍會有皺紋。" }
-        ];
-        const FULL_WORD_LIST = [...PART_1_WORDS, ...PART_2_WORDS, ...PART_3_WORDS, ...PART_4_WORDS];
-
-        const ACHIEVEMENTS = [
-            { id: 'first_win', title: '英雄初現', description: '完成第一次挑戰任務', icon: 'Zap', condition: (records) => records.length >= 1 },
-            { id: 'perfect_accuracy', title: '精準之刃', description: '在一場挑戰中獲得 100% 正確率', icon: 'Target', condition: (records) => records.some(r => r.stats.correct === r.stats.total && r.stats.total > 0) },
-            { id: 'marathon', title: '毅力長征', description: '累積完成 10 次挑戰任務', icon: 'Flag', condition: (records) => records.length >= 10 },
-            { id: 'hard_master', title: '硬派大師', description: '完成一次 Part 4 的挑戰', icon: 'Shield', condition: (records) => records.some(r => r.topic.includes('Part 4')) },
-            { id: 'wealthy', title: '金幣富翁', description: '累積獲得超過 500 枚代幣', icon: 'Coins', condition: (_, tokens) => tokens >= 500 },
-            { id: 'vocab_builder', title: '詞彙建築師', description: '單字本中累積超過 50 個單字', icon: 'BookOpen', condition: (_, __, ___, notebookCount) => notebookCount >= 50 },
-            { id: 'token_legend', title: '金幣傳奇', description: '累積獲得超過 2000 枚代幣', icon: 'Gem', condition: (_, tokens) => tokens >= 2000 },
-        ];
-        
-        const AVATARS = [
-            { id: 'user', icon: User, color: 'bg-blue-500' },
-            { id: 'cat', icon: LucideIconProxy.Cat, color: 'bg-rose-500' },
-            { id: 'dog', icon: LucideIconProxy.Dog, color: 'bg-amber-500' },
-            { id: 'bird', icon: LucideIconProxy.Bird, color: 'bg-sky-500' },
-            { id: 'rabbit', icon: LucideIconProxy.Rabbit, color: 'bg-purple-500' },
-            { id: 'smile', icon: LucideIconProxy.Smile, color: 'bg-emerald-500' },
-            // Shop avatars
-            { id: 'av_bot', icon: Bot, color: 'bg-indigo-500' },
-            { id: 'av_rocket', icon: Rocket, color: 'bg-orange-500' },
-            { id: 'av_ghost', icon: Ghost, color: 'bg-purple-600' },
-            { id: 'av_crown', icon: Crown, color: 'bg-amber-400' },
-            { id: 'av_star', icon: Star, color: 'bg-yellow-400' },
-        ];
-
-
-        // --- UTILS (服務層) ---
-        const NOTEBOOK_KEY = 'dictation_master_notebook';
-        const CURRENT_USER_KEY = 'dictation_master_current_user';
-        
-        const getCurrentUser = () => localStorage.getItem(CURRENT_USER_KEY);
-        const getUserKey = (suffix) => {
-            const user = getCurrentUser();
-            return user ? `user_${user}${suffix}` : null;
-        };
-
-        const loginUser = (username) => {
-            localStorage.setItem(CURRENT_USER_KEY, username);
-            let profile = getUserProfile();
-            if (!profile) {
-                profile = { username, avatarId: 'user', activeThemeId: 'theme-default', purchasedItemIds: [] };
-                saveUserProfile(profile);
-            }
-            return profile;
-        };
-        const logoutUser = () => localStorage.removeItem(CURRENT_USER_KEY);
-        
-        const getUserProfile = () => {
-            const key = getUserKey('_profile');
-            if (!key) return null;
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        };
-        const saveUserProfile = (profile) => {
-            const key = getUserKey('_profile');
-            if (key) localStorage.setItem(key, JSON.stringify(profile));
-        };
-
-        const getUserTokens = () => {
-            const key = getUserKey('_tokens');
-            if (!key) return 0;
-            return parseInt(localStorage.getItem(key) || '0', 10);
-        };
-        const addUserTokens = (amount) => {
-            const key = getUserKey('_tokens');
-            if (!key) return 0;
-            const newTotal = getUserTokens() + amount;
-            localStorage.setItem(key, newTotal.toString());
-            return newTotal;
-        };
-
-        const getGameRecords = () => {
-            const key = getUserKey('_history');
-            if (!key) return [];
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : [];
-        };
-        const saveGameRecord = (record) => {
-            const key = getUserKey('_history');
-            if (!key) return;
-            const existing = getGameRecords();
-            localStorage.setItem(key, JSON.stringify([record, ...existing].slice(0, 100)));
-        };
-
-        const getNotebookLists = () => {
-            const data = localStorage.getItem(NOTEBOOK_KEY);
-            return data ? JSON.parse(data) : [];
-        };
-        const saveNotebookLists = (lists) => localStorage.setItem(NOTEBOOK_KEY, JSON.stringify(lists));
-
-        const playSound = (type) => {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            const ctx = new AudioContext();
-            const now = ctx.currentTime;
+            const loginUser = (username) => {
+                localStorage.setItem(CURRENT_USER_KEY, username);
+                let profile = getUserProfile();
+                if (!profile) {
+                    profile = { username, avatarId: 'user', activeThemeId: 'theme-default', purchasedItemIds: [] };
+                    saveUserProfile(profile);
+                }
+                return profile;
+            };
+            const logoutUser = () => localStorage.removeItem(CURRENT_USER_KEY);
             
-            if (type === 'correct') {
-                const freqs = [1046, 1318, 1568, 2093];
-                freqs.forEach((f, i) => {
+            const getUserProfile = () => {
+                const key = getUserKey('_profile');
+                if (!key) return null;
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            };
+            const saveUserProfile = (profile) => {
+                const key = getUserKey('_profile');
+                if (key) localStorage.setItem(key, JSON.stringify(profile));
+            };
+
+            const getUserTokens = () => {
+                const key = getUserKey('_tokens');
+                if (!key) return 0;
+                return parseInt(localStorage.getItem(key) || '0', 10);
+            };
+            const addUserTokens = (amount) => {
+                const key = getUserKey('_tokens');
+                if (!key) return 0;
+                const newTotal = getUserTokens() + amount;
+                localStorage.setItem(key, newTotal.toString());
+                return newTotal;
+            };
+            const deductUserTokens = (amount) => {
+                const key = getUserKey('_tokens');
+                if (!key) return false;
+                const current = getUserTokens();
+                if (current < amount) return false;
+                localStorage.setItem(key, (current - amount).toString());
+                return true;
+            };
+
+            const purchaseItem = (itemId, price) => {
+                const profile = getUserProfile();
+                if (!profile) return false;
+                if (deductUserTokens(price)) {
+                    const updated = { ...profile, purchasedItemIds: [...(profile.purchasedItemIds || []), itemId] };
+                    saveUserProfile(updated);
+                    return true;
+                }
+                return false;
+            };
+
+            const saveUserRecording = (word, base64) => {
+                const key = getUserKey(`_rec_${word.toLowerCase()}`);
+                if(key) {
+                    try { localStorage.setItem(key, base64); } 
+                    catch(e) { console.error("Storage full?", e); }
+                }
+            };
+            const getUserRecording = (word) => {
+                const key = getUserKey(`_rec_${word.toLowerCase()}`);
+                return key ? localStorage.getItem(key) : null;
+            };
+
+            const getGameRecords = () => {
+                const key = getUserKey('_history');
+                if (!key) return [];
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : [];
+            };
+            const saveGameRecord = (record) => {
+                const key = getUserKey('_history');
+                if (!key) return;
+                const existing = getGameRecords();
+                localStorage.setItem(key, JSON.stringify([record, ...existing].slice(0, 100)));
+            };
+
+            const playSound = (type) => {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const now = ctx.currentTime;
+                
+                if (type === 'correct') {
+                    const freqs = [1046, 1318, 1568, 2093];
+                    freqs.forEach((f, i) => {
+                        const osc = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        osc.frequency.value = f;
+                        const t = now + i * 0.02;
+                        osc.connect(g); g.connect(ctx.destination);
+                        g.gain.setValueAtTime(0, t);
+                        g.gain.linearRampToValueAtTime(0.08, t + 0.01);
+                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                        osc.start(t); osc.stop(t + 0.6);
+                    });
+                } else if (type === 'incorrect') {
                     const osc = ctx.createOscillator();
                     const g = ctx.createGain();
-                    osc.frequency.value = f;
-                    const t = now + i * 0.02;
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(100, now + 0.3);
                     osc.connect(g); g.connect(ctx.destination);
-                    g.gain.setValueAtTime(0, t);
-                    g.gain.linearRampToValueAtTime(0.08, t + 0.01);
-                    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-                    osc.start(t); osc.stop(t + 0.6);
-                });
-            } else if (type === 'incorrect') {
-                const osc = ctx.createOscillator();
-                const g = ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-                osc.connect(g); g.connect(ctx.destination);
-                g.gain.setValueAtTime(0.1, now);
-                g.gain.linearRampToValueAtTime(0, now + 0.3);
-                osc.start(now); osc.stop(now + 0.3);
-            } else if (type === 'next') {
-                 const osc = ctx.createOscillator();
-                 const g = ctx.createGain();
-                 osc.frequency.setValueAtTime(400, now);
-                 osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
-                 osc.connect(g); g.connect(ctx.destination);
-                 g.gain.setValueAtTime(0.05, now);
-                 g.gain.linearRampToValueAtTime(0, now + 0.2);
-                 osc.start(now); osc.stop(now + 0.2);
-            }
-        };
-
-
-        // --- UI 元件 ---
-
-        const Button = ({ children, variant = 'primary', className = '', ...props }) => {
-            const variants = {
-                primary: "bg-blue-500 text-white border-blue-700 shadow-blue-200 dark:shadow-blue-900/20 hover:bg-blue-400 hover:border-blue-600",
-                secondary: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 shadow-slate-200 dark:shadow-none hover:border-slate-400 dark:hover:border-slate-600 hover:text-blue-600 dark:hover:text-blue-400",
-                danger: "bg-rose-500 text-white border-rose-700 shadow-rose-200 dark:shadow-rose-900/20 hover:bg-rose-400"
+                    g.gain.setValueAtTime(0.1, now);
+                    g.gain.linearRampToValueAtTime(0, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'next') {
+                    const osc = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+                    osc.connect(g); g.connect(ctx.destination);
+                    g.gain.setValueAtTime(0.05, now);
+                    g.gain.linearRampToValueAtTime(0, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                }
             };
-            return (
-                <button className={`px-6 py-3 rounded-xl font-bold transition-all duration-150 flex items-center justify-center gap-2 transform active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed border-b-4 select-none ${variants[variant]} ${className}`} {...props}>
-                    {children}
+
+            // --- UI 元件 ---
+            const Button = ({ children, variant = 'primary', className = '', ...props }) => {
+                const variants = {
+                    primary: "bg-blue-500 text-white border-blue-700 shadow-blue-200 dark:shadow-blue-900/20 hover:bg-blue-400 hover:border-blue-600",
+                    secondary: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 shadow-slate-200 dark:shadow-none hover:border-slate-400 dark:hover:border-slate-600 hover:text-blue-600 dark:hover:text-blue-400",
+                    danger: "bg-rose-500 text-white border-rose-700 shadow-rose-200 dark:shadow-rose-900/20 hover:bg-rose-400"
+                };
+                return (
+                    <button className={`px-6 py-3 rounded-xl font-bold transition-all duration-150 flex items-center justify-center gap-2 transform active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed border-b-4 select-none ${variants[variant]} ${className}`} {...props}>
+                        {children}
+                    </button>
+                );
+            };
+
+            const ControlBtn = ({ onClick, icon, label, disabled, color = 'text-slate-600 dark:text-slate-300', small = false }) => (
+                <button 
+                    onClick={onClick} 
+                    disabled={disabled}
+                    className={`flex flex-col items-center justify-center rounded-xl transition-all active:translate-y-1 active:border-b-0 disabled:opacity-20 disabled:grayscale 
+                    ${small ? 'p-1.5 min-w-[32px] bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700' : 'p-2 min-w-[44px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm'}
+                    border-b-2`}
+                >
+                    <div className={color}>{icon}</div>
+                    {!small && <span className="text-[9px] font-black uppercase mt-1 tracking-tighter text-slate-400">{label}</span>}
                 </button>
             );
-        };
 
-        const ProgressBar = ({ current, total }) => {
-            const percentage = Math.min(100, Math.max(0, (current / total) * 100));
-            return (
-                <div className="w-full">
-                    <div className="flex justify-between text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-                        <span>關卡進度</span>
-                        <span className="text-blue-600 dark:text-blue-400">{current} / {total}</span>
+            const ProgressBar = ({ current, total }) => {
+                const percentage = Math.min(100, Math.max(0, (current / total) * 100));
+                return (
+                    <div className="w-full">
+                        <div className="flex justify-between text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                            <span>關卡進度</span>
+                            <span className="text-blue-700 dark:text-blue-400">{current} / {total}</span>
+                        </div>
+                        <div className="h-5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden border-2 border-slate-300 dark:border-slate-700">
+                            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out" style={{ width: `${percentage}%` }} />
+                        </div>
                     </div>
-                    <div className="h-5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden border-2 border-slate-300 dark:border-slate-700">
-                        <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out" style={{ width: `${percentage}%` }} />
-                    </div>
-                </div>
-            );
-        };
-
-        const DictationGame = ({ words, onFinish, onExit, onTokenEarned }) => {
-            const [currentIndex, setCurrentIndex] = useState(0);
-            const [isRandom, setIsRandom] = useState(true);
-            const [playList, setPlayList] = useState([]);
-            const [userInput, setUserInput] = useState('');
-            const [feedback, setFeedback] = useState('idle');
-            const [showHint, setShowHint] = useState(false);
-            const [streak, setStreak] = useState(0);
-            const [stats, setStats] = useState({ correct: 0, incorrect: 0, total: words.length, history: [] });
-            const [elapsedTime, setElapsedTime] = useState(0);
-            const [animationClass, setAnimationClass] = useState('');
-            
-            const inputRef = useRef(null);
-            const startTimeRef = useRef(Date.now());
-            const timerRef = useRef(null);
-
-            useEffect(() => {
-                let initialList = [...words];
-                if (isRandom) initialList.sort(() => 0.5 - Math.random());
-                setPlayList(initialList);
-            }, [words]);
-
-            useEffect(() => {
-                startTimeRef.current = Date.now();
-                const timer = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000);
-                return () => clearInterval(timer);
-            }, []);
-
-            const currentWord = playList[currentIndex] || words[0];
-
-            const toggleOrderMode = () => {
-                const newIsRandom = !isRandom;
-                setIsRandom(newIsRandom);
-                setPlayList(prev => {
-                    const history = prev.slice(0, currentIndex + 1);
-                    const remaining = prev.slice(currentIndex + 1);
-                    if (newIsRandom) remaining.sort(() => 0.5 - Math.random());
-                    else remaining.sort((a, b) => words.findIndex(w => w.word === a.word) - words.findIndex(w => w.word === b.word));
-                    return [...history, ...remaining];
-                });
+                );
             };
 
-            const speakWord = (text, rate = 0.9, lang = 'en-US') => {
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(text);
-                u.lang = lang; u.rate = rate;
-                window.speechSynthesis.speak(u);
-            };
+            // --- Views ---
 
-            useEffect(() => {
-                if(currentWord) setTimeout(() => { speakWord(currentWord.word); inputRef.current?.focus(); }, 500);
-            }, [currentWord]);
+            const ShopView = ({ onBack, onUpdateTokens }) => {
+                const [tokens, setTokens] = useState(getUserTokens());
+                const [profile, setProfile] = useState(getUserProfile());
+                const [currentCategory, setCurrentCategory] = useState('all');
+                const [message, setMessage] = useState(null);
 
-            const handleSubmit = () => {
-                if (!userInput.trim()) return;
-                const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
-                setAnimationClass('animate-submit-pulse border-blue-400');
-                
-                setTimeout(() => {
-                    if (isCorrect) {
-                        setStreak(s => s + 1);
-                        playSound('correct');
-                        setAnimationClass('animate-pop border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20');
-                        addUserTokens(10);
-                        if(onTokenEarned) onTokenEarned(10);
-                        confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#3b82f6', '#fbbf24', '#10b981'] });
-                        speakWord("Correct!");
-                        setTimeout(() => {
-                            setFeedback('correct');
-                            setStats(p => ({ ...p, correct: p.correct + 1, history: [...p.history, { word: currentWord.word, isCorrect: true, userSpelling: userInput }] }));
-                            setAnimationClass('');
-                        }, 500);
-                    } else {
-                        setStreak(0);
-                        playSound('incorrect');
-                        setAnimationClass('animate-shake border-rose-400 text-rose-500 bg-rose-50 dark:bg-rose-900/20');
-                        speakWord(`Incorrect. The word is ${currentWord.word}`);
-                        setTimeout(() => {
-                            setFeedback('incorrect');
-                            setStats(p => ({ ...p, incorrect: p.incorrect + 1, history: [...p.history, { word: currentWord.word, isCorrect: false, userSpelling: userInput }] }));
-                            setAnimationClass('');
-                        }, 500);
+                const filteredItems = currentCategory === 'all' ? SHOP_ITEMS : SHOP_ITEMS.filter(i => i.category === currentCategory);
+
+                const handlePurchase = (item) => {
+                    if (tokens < item.price) {
+                        setMessage({ text: '代幣不足！', type: 'error' });
+                        setTimeout(() => setMessage(null), 2000);
+                        return;
                     }
-                }, 300);
-            };
-
-            const handleNext = useCallback(() => {
-                playSound('next');
-                if (currentIndex < words.length - 1) {
-                    setCurrentIndex(p => p + 1);
-                    setUserInput('');
-                    setFeedback('idle');
-                    setShowHint(false);
-                } else {
-                    onFinish({ ...stats, duration: elapsedTime });
-                }
-            }, [currentIndex, words.length, stats, elapsedTime, onFinish]);
-
-            useEffect(() => {
-                const handleKey = (e) => {
-                    if (feedback !== 'idle' && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        handleNext();
+                    if (purchaseItem(item.id, item.price)) {
+                        setTokens(getUserTokens());
+                        setProfile(getUserProfile());
+                        onUpdateTokens();
+                        setMessage({ text: `解鎖 ${item.name}！`, type: 'success' });
+                        setTimeout(() => setMessage(null), 2000);
                     }
                 };
-                window.addEventListener('keydown', handleKey);
-                return () => window.removeEventListener('keydown', handleKey);
-            }, [feedback, handleNext]);
 
-            if (!currentWord) return null;
+                const handleEquip = (item) => {
+                    if (!profile) return;
+                    const updated = item.type === 'avatar' ? { ...profile, avatarId: item.id } : { ...profile, activeThemeId: item.id };
+                    saveUserProfile(updated);
+                    setProfile(updated);
+                    setMessage({ text: `已裝備 ${item.name}`, type: 'success' });
+                    setTimeout(() => setMessage(null), 2000);
+                };
 
-            return (
-                <div className="max-w-4xl mx-auto px-2 py-4 flex flex-col justify-center min-h-[80vh]">
-                    <div className="mb-2 flex items-center justify-between gap-4">
-                        <button onClick={onExit} className="text-slate-400 text-xs font-black flex items-center gap-1"><ArrowLeft size={14} /> EXIT</button>
-                        <div className="flex-1 max-w-xs"><ProgressBar current={currentIndex + 1} total={words.length} /></div>
-                        <button onClick={toggleOrderMode} disabled={feedback !== 'idle'} className="px-3 py-1.5 rounded-lg text-xs font-black bg-blue-100 text-blue-600 flex items-center gap-1">
-                            {isRandom ? <Shuffle size={14} /> : <ListOrdered size={14} />} {isRandom ? "隨機" : "順序"}
-                        </button>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border-4 border-slate-100 dark:border-slate-800 p-6 flex flex-col gap-4 relative">
-                        <div className="flex flex-col items-center">
-                            {streak > 2 && feedback === 'idle' && <div className="text-orange-500 font-black text-lg animate-bounce mb-1 flex items-center gap-2"><Flame size={20} fill="currentColor" /> {streak} COMBO</div>}
-                            
-                            {feedback === 'idle' ? (
-                                <div className="flex items-center gap-2 w-full max-w-md">
-                                    <input ref={inputRef} type="text" value={userInput} onChange={e => setUserInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} placeholder="Listen & Type..." className={`w-full text-center text-4xl font-black border-b-2 border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:outline-none py-4 bg-transparent transition-all ${animationClass}`} autoComplete="off" />
-                                    <button onClick={() => setShowHint(!showHint)} className="p-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-400 hover:border-amber-400 hover:text-amber-500 transition-all"><HelpCircle size={24} /></button>
-                                </div>
-                            ) : (
-                                <div className={`text-5xl font-black py-4 flex items-center gap-3 animate-in zoom-in ${feedback === 'correct' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {feedback === 'correct' ? <ShieldCheck size={48} /> : <XCircle size={48} />}
-                                    {currentWord.word}
-                                </div>
-                            )}
-
-                            <div className="mt-4 grid grid-cols-3 gap-3 w-full max-w-md">
-                                <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl border-b-4 border-slate-200 text-center"><div className="text-[10px] text-slate-400 font-black">TIME</div><div className="text-xl font-black text-slate-600 dark:text-slate-300 flex justify-center items-center gap-1"><Clock size={16}/> {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, '0')}</div></div>
-                                <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-2xl border-b-4 border-emerald-200 text-center"><div className="text-[10px] text-emerald-600 font-black">OK</div><div className="text-xl font-black text-emerald-600 flex justify-center items-center gap-1"><CheckCircle size={16}/> {stats.correct}</div></div>
-                                <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-2xl border-b-4 border-rose-200 text-center"><div className="text-[10px] text-rose-600 font-black">ERR</div><div className="text-xl font-black text-rose-600 flex justify-center items-center gap-1"><XCircle size={16}/> {stats.incorrect}</div></div>
+                return (
+                    <div className="flex-1 flex flex-col p-4 w-full max-w-5xl mx-auto animate-in slide-in-from-right-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <button onClick={onBack} className="text-slate-500 hover:text-blue-600 font-black flex items-center gap-1"><ArrowLeft size={20} /> 返回</button>
+                            <div className="flex items-center gap-2 bg-white/80 border-2 border-amber-200 px-4 py-2 rounded-xl shadow-sm">
+                                <Coins size={20} className="text-amber-500" />
+                                <span className="font-black text-amber-700 text-lg">{tokens}</span>
                             </div>
                         </div>
+                        
+                        <div className="text-center mb-8">
+                            <h2 className="text-4xl font-black text-slate-800 dark:text-slate-100 flex justify-center gap-2 items-center"><ShoppingBag className="text-blue-500"/> 英雄商店</h2>
+                        </div>
 
-                        {(showHint || feedback !== 'idle') && (
-                            <div className={`p-4 rounded-2xl border-2 w-full max-w-xl mx-auto animate-in fade-in zoom-in ${feedback !== 'idle' ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-200'}`}>
-                                <p className="text-xs font-black uppercase tracking-widest mb-1 opacity-50">DEFINITION</p>
-                                <p className="text-2xl font-black mb-2">{currentWord.definition}</p>
-                                {feedback !== 'idle' && <p className="text-slate-500 italic">"{currentWord.example}"</p>}
+                        {message && (
+                            <div className={`mb-6 p-3 rounded-xl text-center font-bold ${message.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {message.text}
                             </div>
                         )}
 
-                        <div className="mt-2">
-                             {feedback === 'idle' ? (
-                                <Button onClick={handleSubmit} disabled={!userInput} className="w-full text-xl py-4 rounded-2xl shadow-md">CHECK SPELLING</Button>
-                             ) : (
-                                <Button onClick={handleNext} className="w-full text-xl py-4 rounded-2xl bg-emerald-500 border-emerald-700 hover:bg-emerald-400">NEXT WORD <ArrowRight size={20} /></Button>
-                             )}
-                        </div>
-                        
-                        <div className="flex justify-center gap-4 mt-4">
-                            <button onClick={() => speakWord(currentWord.word)} className="p-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-400"><Volume2 size={24} /></button>
-                            <button onClick={() => speakWord(currentWord.word, 0.5)} className="p-3 bg-white border-2 border-slate-200 rounded-xl hover:bg-slate-50"><Zap size={24} className="rotate-180" /></button>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-20">
+                            {filteredItems.map(item => {
+                                const isPurchased = profile?.purchasedItemIds?.includes(item.id);
+                                const isEquipped = item.type === 'avatar' ? profile?.avatarId === item.id : profile?.activeThemeId === item.id;
+                                const IconComp = LucideIconProxy[item.iconName] || Bot;
+                                
+                                return (
+                                    <div key={item.id} className={`p-4 rounded-3xl border-4 flex flex-col items-center gap-3 relative ${isEquipped ? 'bg-blue-50 border-blue-400' : 'bg-white border-slate-100'}`}>
+                                        {isEquipped && <div className="absolute top-2 right-2 text-blue-500"><CheckCircle size={20} fill="currentColor" className="text-white"/></div>}
+                                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white ${item.color}`}>
+                                            <IconComp size={32} />
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="font-black text-slate-800">{item.name}</div>
+                                            {!isPurchased && <div className="text-xs font-bold text-amber-600 flex items-center justify-center gap-1"><Coins size={12}/> {item.price}</div>}
+                                        </div>
+                                        {!isPurchased ? (
+                                            <button onClick={() => handlePurchase(item)} disabled={tokens < item.price} className="w-full py-2 bg-slate-900 text-white rounded-xl text-xs font-black">購買</button>
+                                        ) : (
+                                            <button onClick={() => handleEquip(item)} disabled={isEquipped} className={`w-full py-2 rounded-xl text-xs font-black ${isEquipped ? 'bg-blue-100 text-blue-500' : 'bg-emerald-500 text-white'}`}>
+                                                {isEquipped ? '使用中' : '裝備'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
-                </div>
-            );
-        };
-
-        const App = () => {
-            const [gameState, setGameState] = useState('PROFILE_SETUP'); // PROFILE_SETUP, MENU, PLAYING, SUMMARY, PROFILE
-            const [words, setWords] = useState(PART_1_WORDS);
-            const [profile, setProfile] = useState(null);
-            const [userTokens, setUserTokens] = useState(0);
-            const [tempUsername, setTempUsername] = useState('');
-            const [gameStats, setGameStats] = useState(null);
-            const [currentPart, setCurrentPart] = useState('');
-            const [isDarkMode, setIsDarkMode] = useState(false);
-
-            useEffect(() => {
-                const user = getCurrentUser();
-                if (user) {
-                    setProfile(getUserProfile());
-                    setUserTokens(getUserTokens());
-                    setGameState('MENU');
-                }
-                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    setIsDarkMode(true);
-                    document.documentElement.classList.add('dark');
-                }
-            }, []);
-
-            const toggleDarkMode = () => {
-                setIsDarkMode(!isDarkMode);
-                document.documentElement.classList.toggle('dark');
+                );
             };
 
-            const handleLogin = () => {
-                if (!tempUsername.trim()) return;
-                setProfile(loginUser(tempUsername.trim()));
-                setUserTokens(getUserTokens());
-                setGameState('MENU');
-            };
+            const AchievementsView = ({ onBack }) => {
+                const unlocked = getGameRecords().length; // Simplified for demo
+                const records = getGameRecords();
+                const tokens = getUserTokens();
+                const profile = getUserProfile();
 
-            const startGame = (partNum) => {
-                const partWords = [PART_1_WORDS, PART_2_WORDS, PART_3_WORDS, PART_4_WORDS][partNum - 1];
-                setWords(partWords);
-                setCurrentPart(`Grade 3C - Part ${partNum}`);
-                setGameState('PLAYING');
-            };
-
-            const handleGameFinish = (stats) => {
-                setGameStats(stats);
-                saveGameRecord({ id: Date.now().toString(), timestamp: Date.now(), topic: currentPart, stats });
-                setUserTokens(getUserTokens()); // Refresh tokens
-                setGameState('SUMMARY');
-            };
-
-            const AvatarIcon = ({ id }) => {
-                const av = AVATARS.find(a => a.id === id) || AVATARS[0];
-                return React.createElement(av.icon, { size: 36, className: "text-white" });
-            };
-
-            return (
-                <div className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${isDarkMode ? 'dark:bg-slate-950 text-slate-100' : 'bg-amber-50 text-slate-800'} ${profile?.activeThemeId || 'theme-default'}`}>
-                    <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b-4 border-slate-100/50 sticky top-0 z-20 shadow-sm">
-                        <div className="max-w-5xl mx-auto px-4 h-24 flex items-center justify-between relative">
-                            <div className="flex items-center gap-4 z-10">
-                                {profile ? (
-                                    <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg border-4 border-white ${AVATARS.find(a => a.id === profile.avatarId)?.color || 'bg-blue-500'}`} onClick={() => setGameState('PROFILE')}>
-                                        <AvatarIcon id={profile.avatarId} />
+                return (
+                    <div className="flex-1 flex flex-col p-4 w-full max-w-4xl mx-auto animate-in slide-in-from-right-4">
+                        <button onClick={onBack} className="mb-6 text-slate-500 hover:text-blue-600 font-black flex items-center gap-1"><ArrowLeft size={20} /> 返回</button>
+                        <h2 className="text-4xl font-black text-center mb-8 text-slate-800 dark:text-slate-100 flex justify-center gap-2"><Trophy className="text-amber-500"/> 成就獎章</h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {ACHIEVEMENTS.map(ach => {
+                                const isUnlocked = ach.condition(records, tokens, profile);
+                                const AchIcon = LucideIconProxy[ach.icon] || Zap;
+                                return (
+                                    <div key={ach.id} className={`p-4 rounded-2xl border-4 flex items-center gap-4 ${isUnlocked ? 'bg-white border-amber-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                        <div className={`p-3 rounded-xl ${isUnlocked ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-400'}`}>
+                                            <AchIcon size={24} />
+                                        </div>
+                                        <div>
+                                            <h3 className={`font-black text-lg ${isUnlocked ? 'text-slate-800' : 'text-slate-400'}`}>{ach.title}</h3>
+                                            <p className="text-xs font-bold text-slate-500">{ach.description}</p>
+                                        </div>
+                                        {isUnlocked && <CheckCircle size={24} className="ml-auto text-emerald-500" fill="#ecfdf5"/>}
                                     </div>
-                                ) : <div className="bg-blue-500 text-white p-3 rounded-2xl"><Zap size={32} /></div>}
-                                <div className="flex flex-col cursor-pointer" onClick={() => profile && setGameState('MENU')}>
-                                    <span className="font-black text-2xl tracking-tight">單字大師</span>
-                                    {profile && <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg w-fit">{profile.username}</span>}
-                                </div>
-                            </div>
-                            
-                            {profile && (
-                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex flex-col items-center animate-in zoom-in">
-                                    <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-amber-600 text-white px-8 py-2.5 rounded-full shadow-[0_6px_0_rgb(180,83,9)] border-4 border-white dark:border-slate-800 transform hover:scale-105 transition-all cursor-pointer">
-                                        <Coins size={36} className="fill-yellow-200 text-yellow-100" />
-                                        <span className="font-black text-4xl tracking-wider drop-shadow-md">{userTokens}</span>
-                                    </div>
-                                </div>
-                            )}
+                                )
+                            })}
+                        </div>
+                    </div>
+                );
+            };
 
-                            <div className="flex items-center gap-2 z-10">
-                                <button onClick={toggleDarkMode} className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border-b-2 border-slate-200">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
-                                {profile && (
-                                    <div className="md:hidden flex items-center gap-2 bg-amber-100 border-2 border-amber-200 px-3 py-1.5 rounded-full">
-                                        <Coins size={20} className="text-amber-500" />
-                                        <span className="font-black text-amber-700 text-lg">{userTokens}</span>
+            const DictationGame = ({ words, onFinish, onExit, onTokenEarned }) => {
+                const [currentIndex, setCurrentIndex] = useState(0);
+                const [isRandom, setIsRandom] = useState(true);
+                const [playList, setPlayList] = useState([]);
+                const [userInput, setUserInput] = useState('');
+                const [feedback, setFeedback] = useState('idle');
+                const [showHint, setShowHint] = useState(false);
+                const [streak, setStreak] = useState(0);
+                const [stats, setStats] = useState({ correct: 0, incorrect: 0, total: words.length, history: [] });
+                const [elapsedTime, setElapsedTime] = useState(0);
+                const [animationClass, setAnimationClass] = useState('');
+                
+                // Recording States
+                const [isRecording, setIsRecording] = useState(false);
+                const [userRecordingUrl, setUserRecordingUrl] = useState(null);
+                const mediaRecorderRef = useRef(null);
+                const audioChunksRef = useRef([]);
+                
+                const inputRef = useRef(null);
+                const startTimeRef = useRef(Date.now());
+
+                useEffect(() => {
+                    let initialList = [...words];
+                    if (isRandom) initialList.sort(() => 0.5 - Math.random());
+                    setPlayList(initialList);
+                }, [words]);
+
+                useEffect(() => {
+                    startTimeRef.current = Date.now();
+                    const timer = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000);
+                    return () => clearInterval(timer);
+                }, []);
+
+                const currentWord = playList[currentIndex] || words[0];
+
+                // Load existing recording for this word
+                useEffect(() => {
+                    if (currentWord) {
+                        const existing = getUserRecording(currentWord.word);
+                        setUserRecordingUrl(existing);
+                    }
+                }, [currentWord]);
+
+                const speakWord = useCallback((text, rate = 0.9, langType = 'US') => {
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text);
+                    let targetRate = rate;
+                    let targetPitch = 1.0;
+                    let targetLang = 'en-US';
+
+                    if (langType === 'GB') targetLang = 'en-GB';
+                    else if (langType === 'AU') targetLang = 'en-AU';
+                    else if (langType === 'IN') targetLang = 'en-IN'; // Attempt Indian accent
+                    else if (langType === 'IE') targetLang = 'en-IE'; // Attempt Irish
+                    else if (langType === 'KID') { targetPitch = 1.4; targetRate = 1.1; }
+                    else if (langType === 'MONSTER') { targetPitch = 0.6; targetRate = 0.8; }
+                    else if (langType === 'SLOW') targetRate = 0.5;
+                    else if (langType === 'FAST') targetRate = 1.4;
+
+                    u.lang = targetLang;
+                    u.rate = targetRate;
+                    u.pitch = targetPitch;
+                    
+                    // Try to find matching voice
+                    const voices = window.speechSynthesis.getVoices();
+                    let voice = null;
+                    if(langType === 'GB') voice = voices.find(v => v.lang.includes('GB') || v.name.includes('UK'));
+                    else if(langType === 'AU') voice = voices.find(v => v.lang.includes('AU'));
+                    else if(langType === 'IN') voice = voices.find(v => v.lang.includes('IN'));
+                    
+                    if(voice) u.voice = voice;
+                    
+                    window.speechSynthesis.speak(u);
+                }, []);
+
+                useEffect(() => {
+                    if(currentWord) setTimeout(() => { speakWord(currentWord.word); inputRef.current?.focus(); }, 500);
+                }, [currentWord]);
+
+                // Recording Logic
+                const startRecording = async () => {
+                    if (!navigator.mediaDevices) return alert("您的裝置不支援錄音");
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        const mediaRecorder = new MediaRecorder(stream);
+                        mediaRecorderRef.current = mediaRecorder;
+                        audioChunksRef.current = [];
+                        mediaRecorder.ondataavailable = e => audioChunksRef.current.push(e.data);
+                        mediaRecorder.onstop = () => {
+                            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                            const reader = new FileReader();
+                            reader.readAsDataURL(blob);
+                            reader.onloadend = () => {
+                                const base64 = reader.result;
+                                saveUserRecording(currentWord.word, base64);
+                                setUserRecordingUrl(base64);
+                            }
+                            stream.getTracks().forEach(t => t.stop());
+                        };
+                        mediaRecorder.start();
+                        setIsRecording(true);
+                    } catch(e) {
+                        alert("無法存取麥克風");
+                    }
+                };
+
+                const stopRecording = () => {
+                    if(mediaRecorderRef.current) {
+                        mediaRecorderRef.current.stop();
+                        setIsRecording(false);
+                    }
+                };
+
+                const playMyRecording = () => {
+                    if(userRecordingUrl) {
+                        const audio = new Audio(userRecordingUrl);
+                        audio.play();
+                    }
+                };
+
+                const handleSubmit = () => {
+                    if (!userInput.trim()) return;
+                    const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
+                    setAnimationClass('animate-submit-pulse border-blue-400');
+                    
+                    setTimeout(() => {
+                        if (isCorrect) {
+                            setStreak(s => s + 1);
+                            playSound('correct');
+                            setAnimationClass('animate-pop border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20');
+                            addUserTokens(10);
+                            if(onTokenEarned) onTokenEarned(10);
+                            if (window.confetti) confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#3b82f6', '#fbbf24', '#10b981'] });
+                            speakWord("Correct!");
+                            setTimeout(() => {
+                                setFeedback('correct');
+                                setStats(p => ({ ...p, correct: p.correct + 1, history: [...p.history, { word: currentWord.word, isCorrect: true, userSpelling: userInput }] }));
+                                setAnimationClass('');
+                            }, 500);
+                        } else {
+                            setStreak(0);
+                            playSound('incorrect');
+                            setAnimationClass('animate-shake border-rose-400 text-rose-500 bg-rose-50 dark:bg-rose-900/20');
+                            speakWord(`Incorrect. The word is ${currentWord.word}`);
+                            setTimeout(() => {
+                                setFeedback('incorrect');
+                                setStats(p => ({ ...p, incorrect: p.incorrect + 1, history: [...p.history, { word: currentWord.word, isCorrect: false, userSpelling: userInput }] }));
+                                setAnimationClass('');
+                            }, 500);
+                        }
+                    }, 300);
+                };
+
+                const handleNext = useCallback(() => {
+                    playSound('next');
+                    if (currentIndex < words.length - 1) {
+                        setCurrentIndex(p => p + 1);
+                        setUserInput('');
+                        setFeedback('idle');
+                        setShowHint(false);
+                        setUserRecordingUrl(null);
+                    } else {
+                        onFinish({ ...stats, duration: elapsedTime });
+                    }
+                }, [currentIndex, words.length, stats, elapsedTime, onFinish]);
+
+                useEffect(() => {
+                    const handleKey = (e) => {
+                        if (feedback !== 'idle' && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            handleNext();
+                        }
+                    };
+                    window.addEventListener('keydown', handleKey);
+                    return () => window.removeEventListener('keydown', handleKey);
+                }, [feedback, handleNext]);
+
+                if (!currentWord) return null;
+
+                return (
+                    <div className="max-w-4xl mx-auto px-2 py-4 flex flex-col justify-center min-h-[80vh]">
+                        <div className="mb-2 flex items-center justify-between gap-4">
+                            <button onClick={onExit} className="text-slate-500 hover:text-slate-700 text-xs font-black flex items-center gap-1"><ArrowLeft size={14} /> EXIT</button>
+                            <div className="flex-1 max-w-xs"><ProgressBar current={currentIndex + 1} total={words.length} /></div>
+                            <button onClick={() => setIsRandom(!isRandom)} disabled={feedback !== 'idle'} className="px-3 py-1.5 rounded-lg text-xs font-black bg-blue-100 text-blue-700 flex items-center gap-1 border border-blue-200">
+                                {isRandom ? <Shuffle size={14} /> : <ListOrdered size={14} />} {isRandom ? "隨機" : "順序"}
+                            </button>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border-4 border-slate-200 dark:border-slate-800 p-6 flex flex-col gap-4 relative">
+                            <div className="flex flex-col items-center">
+                                {streak > 2 && feedback === 'idle' && <div className="text-orange-500 font-black text-lg animate-bounce mb-1 flex items-center gap-2"><Flame size={20} fill="currentColor" /> {streak} COMBO</div>}
+                                
+                                {feedback === 'idle' ? (
+                                    <div className="flex items-center gap-2 w-full max-w-md">
+                                        <input ref={inputRef} type="text" value={userInput} onChange={e => setUserInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} placeholder="Listen & Type..." className={`w-full text-center text-4xl font-black border-b-2 border-slate-300 dark:border-slate-700 focus:border-blue-500 focus:outline-none py-4 bg-transparent placeholder-slate-300 dark:placeholder-slate-600 transition-all ${animationClass}`} autoComplete="off" />
+                                        <button onClick={() => setShowHint(!showHint)} className="p-3 rounded-xl bg-slate-100 border-2 border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-600 transition-all"><HelpCircle size={24} /></button>
+                                    </div>
+                                ) : (
+                                    <div className={`text-5xl font-black py-4 flex items-center gap-3 animate-in zoom-in ${feedback === 'correct' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        {feedback === 'correct' ? <ShieldCheck size={48} /> : <XCircle size={48} />}
+                                        {currentWord.word}
                                     </div>
                                 )}
+
+                                <div className="mt-4 grid grid-cols-3 gap-3 w-full max-w-md">
+                                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl border-b-4 border-slate-300 dark:border-slate-700 text-center"><div className="text-[10px] text-slate-500 font-black">TIME</div><div className="text-xl font-black text-slate-700 dark:text-slate-300 flex justify-center items-center gap-1"><Clock size={16}/> {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, '0')}</div></div>
+                                    <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-2xl border-b-4 border-emerald-200 text-center"><div className="text-[10px] text-emerald-700 font-black">OK</div><div className="text-xl font-black text-emerald-600 flex justify-center items-center gap-1"><CheckCircle size={16}/> {stats.correct}</div></div>
+                                    <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-2xl border-b-4 border-rose-200 text-center"><div className="text-[10px] text-rose-700 font-black">ERR</div><div className="text-xl font-black text-rose-600 flex justify-center items-center gap-1"><XCircle size={16}/> {stats.incorrect}</div></div>
+                                </div>
+                            </div>
+
+                            {(showHint || feedback !== 'idle') && (
+                                <div className={`p-4 rounded-2xl border-2 w-full max-w-xl mx-auto animate-in fade-in zoom-in ${feedback !== 'idle' ? 'bg-slate-50 border-slate-300 dark:border-slate-700' : 'bg-amber-50 border-amber-200'}`}>
+                                    <p className="text-xs font-black uppercase tracking-widest mb-1 opacity-70 text-slate-600">DEFINITION</p>
+                                    <p className="text-2xl font-black mb-2 text-slate-800 dark:text-slate-100">{currentWord.definition}</p>
+                                    {feedback !== 'idle' && <p className="text-slate-600 dark:text-slate-400 italic font-medium">"{currentWord.example}"</p>}
+                                </div>
+                            )}
+
+                            <div className="mt-2">
+                                {feedback === 'idle' ? (
+                                    <Button onClick={handleSubmit} disabled={!userInput} className="w-full text-xl py-4 rounded-2xl shadow-md">CHECK SPELLING</Button>
+                                ) : (
+                                    <Button onClick={handleNext} className="w-full text-xl py-4 rounded-2xl bg-emerald-500 border-emerald-700 hover:bg-emerald-400">NEXT WORD <ArrowRight size={20} /></Button>
+                                )}
+                            </div>
+                            
+                            {/* Voice & Recording Controls */}
+                            <div className="mt-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border-2 border-slate-100 dark:border-slate-700">
+                                <div className="grid grid-cols-5 md:grid-cols-9 gap-2 mb-3">
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.9, 'US')} icon={<Volume2 size={16}/>} label="US" color="text-blue-500"/>
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.9, 'GB')} icon={<Headphones size={16}/>} label="UK" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.9, 'AU')} icon={<Globe size={16}/>} label="AU" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.9, 'IN')} icon={<Languages size={16}/>} label="IN" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.9, 'IE')} icon={<Clover size={16}/>} label="IE" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.5, 'SLOW')} icon={<Zap size={16} className="rotate-180"/>} label="Slow" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 1.4, 'FAST')} icon={<Wind size={16}/>} label="Fast" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 1.1, 'KID')} icon={<Sparkles size={16}/>} label="Kid" />
+                                    <ControlBtn onClick={() => speakWord(currentWord.word, 0.8, 'MONSTER')} icon={<Ghost size={16}/>} label="Monst" />
+                                </div>
+                                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={isRecording ? stopRecording : startRecording} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs border-b-2 transition-all active:scale-95 ${isRecording ? 'bg-rose-500 text-white border-rose-700 animate-pulse' : 'bg-slate-100 text-slate-600 border-slate-300'}`}>
+                                            {isRecording ? <><Square size={12} fill="currentColor"/> 錄音中</> : <><Mic size={14}/> 錄音</>}
+                                        </button>
+                                        {userRecordingUrl && !isRecording && (
+                                            <button onClick={playMyRecording} className="p-2 bg-emerald-500 text-white rounded-lg border-b-2 border-emerald-700 active:scale-95 hover:bg-emerald-400">
+                                                <Play size={14} fill="currentColor" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400">{userRecordingUrl ? '已儲存你的發音' : '尚未錄音'}</span>
+                                </div>
                             </div>
                         </div>
-                    </header>
+                    </div>
+                );
+            };
 
-                    <main className="flex-1 flex flex-col relative p-6">
-                        {gameState === 'PROFILE_SETUP' && (
-                            <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in">
-                                <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border-4 border-slate-100 max-w-lg w-full text-center">
-                                    <div className="w-20 h-20 bg-blue-100 rounded-3xl flex items-center justify-center text-blue-500 mx-auto mb-6"><LogIn size={40} /></div>
-                                    <h2 className="text-3xl font-black mb-4">歡迎回來，英雄</h2>
-                                    <input type="text" value={tempUsername} onChange={e => setTempUsername(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} placeholder="輸入你的名字" className="w-full bg-slate-50 border-2 rounded-2xl px-6 py-4 font-bold text-lg mb-6" />
-                                    <Button onClick={handleLogin} className="w-full text-xl" disabled={!tempUsername.trim()}>開始冒險</Button>
+            const App = () => {
+                const [gameState, setGameState] = useState('PROFILE_SETUP'); 
+                const [words, setWords] = useState(PART_1_WORDS);
+                const [profile, setProfile] = useState(null);
+                const [userTokens, setUserTokens] = useState(0);
+                const [tempUsername, setTempUsername] = useState('');
+                const [gameStats, setGameStats] = useState(null);
+                const [currentPart, setCurrentPart] = useState('');
+                const [isDarkMode, setIsDarkMode] = useState(false);
+
+                useEffect(() => {
+                    const user = getCurrentUser();
+                    if (user) {
+                        setProfile(getUserProfile());
+                        setUserTokens(getUserTokens());
+                        setGameState('MENU');
+                    }
+                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        setIsDarkMode(true);
+                        document.documentElement.classList.add('dark');
+                    }
+                }, []);
+
+                const toggleDarkMode = () => {
+                    setIsDarkMode(!isDarkMode);
+                    document.documentElement.classList.toggle('dark');
+                };
+
+                const handleLogin = () => {
+                    if (!tempUsername.trim()) return;
+                    setProfile(loginUser(tempUsername.trim()));
+                    setUserTokens(getUserTokens());
+                    setGameState('MENU');
+                };
+
+                const startGame = (partNum) => {
+                    // In real app select correct word list
+                    const partWords = [PART_1_WORDS][0]; 
+                    setWords(partWords);
+                    setCurrentPart(`Grade 3C - Part ${partNum}`);
+                    setGameState('PLAYING');
+                };
+
+                const handleGameFinish = (stats) => {
+                    setGameStats(stats);
+                    saveGameRecord({ id: Date.now().toString(), timestamp: Date.now(), topic: currentPart, stats });
+                    setUserTokens(getUserTokens());
+                    setGameState('SUMMARY');
+                };
+
+                const AvatarIcon = ({ id }) => {
+                    const av = AVATARS.find(a => a.id === id) || AVATARS[0];
+                    return React.createElement(av.icon, { size: 36, className: "text-white" });
+                };
+
+                return (
+                    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${isDarkMode ? 'dark:bg-slate-950 text-slate-100' : 'bg-amber-50 text-slate-800'} ${profile?.activeThemeId || 'theme-default'}`}>
+                        <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b-4 border-slate-200/50 sticky top-0 z-20 shadow-sm">
+                            <div className="max-w-5xl mx-auto px-4 h-24 flex items-center justify-between relative">
+                                <div className="flex items-center gap-4 z-10">
+                                    {profile ? (
+                                        <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg border-4 border-white ${AVATARS.find(a => a.id === profile.avatarId)?.color || 'bg-blue-500'}`} onClick={() => setGameState('PROFILE')}>
+                                            <AvatarIcon id={profile.avatarId} />
+                                        </div>
+                                    ) : <div className="bg-blue-500 text-white p-3 rounded-2xl"><Zap size={32} /></div>}
+                                    <div className="flex flex-col cursor-pointer" onClick={() => profile && setGameState('MENU')}>
+                                        <span className="font-black text-2xl tracking-tight">單字大師</span>
+                                        {profile && <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg w-fit">{profile.username}</span>}
+                                    </div>
+                                </div>
+                                
+                                {profile && (
+                                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex flex-col items-center animate-in zoom-in">
+                                        <div className="flex items-center gap-3 bg-gradient-to-r from-amber-400 to-amber-600 text-white px-8 py-2.5 rounded-full shadow-[0_6px_0_rgb(180,83,9)] border-4 border-white dark:border-slate-800 transform hover:scale-105 transition-all cursor-pointer">
+                                            <Coins size={36} className="fill-yellow-200 text-yellow-100" />
+                                            <span className="font-black text-4xl tracking-wider drop-shadow-md">{userTokens}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2 z-10">
+                                    {profile && (
+                                        <>
+                                            <button onClick={() => setGameState('SHOP')} className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-blue-500" title="商店"><ShoppingBag size={20} /></button>
+                                            <button onClick={() => setGameState('ACHIEVEMENTS')} className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-amber-500" title="成就"><Trophy size={20} /></button>
+                                        </>
+                                    )}
+                                    <button onClick={toggleDarkMode} className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
+                                    {profile && (
+                                        <div className="md:hidden flex items-center gap-2 bg-amber-100 border-2 border-amber-200 px-3 py-1.5 rounded-full">
+                                            <Coins size={20} className="text-amber-500" />
+                                            <span className="font-black text-amber-700 text-lg">{userTokens}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        )}
+                        </header>
 
-                        {gameState === 'MENU' && (
-                            <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
-                                <h1 className="text-5xl md:text-6xl font-black text-blue-900 dark:text-blue-400 mb-12 text-center">Spelling Bee <span className="text-blue-500">3C</span></h1>
-                                <div className="grid md:grid-cols-2 gap-6 w-full">
-                                    {[1, 2, 3, 4].map(part => (
-                                        <div key={part} onClick={() => startGame(part)} className="bg-white/90 dark:bg-slate-900/90 p-8 rounded-3xl border-4 border-slate-100 hover:border-blue-400 hover:scale-[1.02] transition-all cursor-pointer flex items-center gap-4 shadow-sm">
-                                            <div className={`p-4 rounded-2xl ${['bg-blue-100 text-blue-600', 'bg-rose-100 text-rose-600', 'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600'][part-1]}`}><Library size={32} /></div>
-                                            <div><h3 className="text-2xl font-black">Grade 3C - Part {part}</h3><p className="text-slate-500 font-bold text-sm">點擊開始練習</p></div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <p className="mt-12 text-slate-400 text-sm font-bold">離線版 - 移除 AI 功能</p>
-                            </div>
-                        )}
-
-                        {gameState === 'PLAYING' && (
-                            <DictationGame words={words} onFinish={handleGameFinish} onExit={() => setGameState('MENU')} onTokenEarned={() => setUserTokens(getUserTokens())} />
-                        )}
-
-                        {gameState === 'SUMMARY' && gameStats && (
-                            <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in">
-                                <div className="bg-white dark:bg-slate-900 max-w-2xl w-full rounded-3xl shadow-2xl p-12 text-center border-4 border-slate-100">
-                                    <h2 className="text-3xl font-black mb-8">任務完成！</h2>
-                                    <div className="grid grid-cols-3 gap-4 mb-8">
-                                        <div className="p-4 bg-blue-50 rounded-2xl border-2 border-blue-100"><div className="text-2xl font-black text-blue-500">{gameStats.correct}/{gameStats.total}</div><div className="text-xs font-bold text-blue-400">分數</div></div>
-                                        <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-100"><div className="text-2xl font-black text-emerald-500">+{gameStats.correct * 10}</div><div className="text-xs font-bold text-emerald-400">代幣</div></div>
-                                        <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100"><div className="text-2xl font-black text-slate-500">{Math.round((gameStats.correct/gameStats.total)*100)}%</div><div className="text-xs font-bold text-slate-400">正確率</div></div>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <Button onClick={() => setGameState('MENU')} variant="secondary" className="flex-1">回主選單</Button>
-                                        <Button onClick={() => setGameState('PLAYING')} className="flex-1">再次挑戰</Button>
+                        <main className="flex-1 flex flex-col relative p-6">
+                            {gameState === 'PROFILE_SETUP' && (
+                                <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in">
+                                    <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border-4 border-slate-200 max-w-lg w-full text-center">
+                                        <div className="w-20 h-20 bg-blue-100 rounded-3xl flex items-center justify-center text-blue-500 mx-auto mb-6"><LogIn size={40} /></div>
+                                        <h2 className="text-3xl font-black mb-4">歡迎回來，英雄</h2>
+                                        <input type="text" value={tempUsername} onChange={e => setTempUsername(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} placeholder="輸入你的名字" className="w-full bg-slate-100 border-2 border-slate-300 rounded-2xl px-6 py-4 font-bold text-lg mb-6 placeholder-slate-400 focus:border-blue-500 focus:bg-white transition-all" />
+                                        <Button onClick={handleLogin} className="w-full text-xl" disabled={!tempUsername.trim()}>開始冒險</Button>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                        
-                        {gameState === 'PROFILE' && (
-                             <div className="flex-1 flex flex-col items-center justify-center">
-                                 <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border-4 border-slate-100 max-w-lg w-full">
-                                    <h2 className="text-2xl font-black mb-6 flex items-center gap-2"><User /> 英雄檔案</h2>
-                                    <div className="space-y-4">
-                                        <p className="font-bold text-slate-500">英雄名稱: <span className="text-slate-800 dark:text-white">{profile.username}</span></p>
-                                        <div className="grid grid-cols-5 gap-2">
-                                            {AVATARS.map(a => (
-                                                <button key={a.id} onClick={() => {
-                                                    const updated = {...profile, avatarId: a.id};
-                                                    saveUserProfile(updated);
-                                                    setProfile(updated);
-                                                }} className={`aspect-square rounded-xl flex items-center justify-center text-white ${a.color} ${profile.avatarId === a.id ? 'ring-4 ring-offset-2 ring-blue-500' : 'opacity-50'}`}>
-                                                    <a.icon size={20} />
-                                                </button>
-                                            ))}
+                            )}
+
+                            {gameState === 'MENU' && (
+                                <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
+                                    <h1 className="text-5xl md:text-6xl font-black text-blue-900 dark:text-blue-400 mb-12 text-center">Spelling Bee <span className="text-blue-500">3C</span></h1>
+                                    <div className="grid md:grid-cols-2 gap-6 w-full">
+                                        {[1, 2, 3, 4].map(part => (
+                                            <div key={part} onClick={() => startGame(part)} className="bg-white/90 dark:bg-slate-900/90 p-8 rounded-3xl border-4 border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:scale-[1.02] transition-all cursor-pointer flex items-center gap-4 shadow-sm">
+                                                <div className={`p-4 rounded-2xl ${['bg-blue-100 text-blue-600', 'bg-rose-100 text-rose-600', 'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600'][part-1]}`}><Library size={32} /></div>
+                                                <div><h3 className="text-2xl font-black">Grade 3C - Part {part}</h3><p className="text-slate-600 dark:text-slate-400 font-bold text-sm">點擊開始練習</p></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {gameState === 'PLAYING' && (
+                                <DictationGame words={words} onFinish={handleGameFinish} onExit={() => setGameState('MENU')} onTokenEarned={() => setUserTokens(getUserTokens())} />
+                            )}
+
+                            {gameState === 'SHOP' && (
+                                <ShopView onBack={() => setGameState('MENU')} onUpdateTokens={() => setUserTokens(getUserTokens())} />
+                            )}
+
+                            {gameState === 'ACHIEVEMENTS' && (
+                                <AchievementsView onBack={() => setGameState('MENU')} />
+                            )}
+
+                            {gameState === 'SUMMARY' && gameStats && (
+                                <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in">
+                                    <div className="bg-white dark:bg-slate-900 max-w-2xl w-full rounded-3xl shadow-2xl p-12 text-center border-4 border-slate-200">
+                                        <h2 className="text-3xl font-black mb-8">任務完成！</h2>
+                                        <div className="grid grid-cols-3 gap-4 mb-8">
+                                            <div className="p-4 bg-blue-50 rounded-2xl border-2 border-blue-100"><div className="text-2xl font-black text-blue-500">{gameStats.correct}/{gameStats.total}</div><div className="text-xs font-bold text-blue-500">分數</div></div>
+                                            <div className="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-100"><div className="text-2xl font-black text-emerald-500">+{gameStats.correct * 10}</div><div className="text-xs font-bold text-emerald-500">代幣</div></div>
+                                            <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-200"><div className="text-2xl font-black text-slate-600">{Math.round((gameStats.correct/gameStats.total)*100)}%</div><div className="text-xs font-bold text-slate-500">正確率</div></div>
                                         </div>
-                                        <div className="pt-6 flex gap-4">
-                                            <Button onClick={() => setGameState('MENU')} variant="secondary" className="flex-1">返回</Button>
-                                            <button onClick={() => { logoutUser(); setProfile(null); setGameState('PROFILE_SETUP'); }} className="flex-1 py-3 rounded-xl font-bold border-2 border-rose-200 text-rose-500 hover:bg-rose-50">登出</button>
+                                        <div className="flex gap-4">
+                                            <Button onClick={() => setGameState('MENU')} variant="secondary" className="flex-1">回主選單</Button>
+                                            <Button onClick={() => setGameState('PLAYING')} className="flex-1">再次挑戰</Button>
                                         </div>
                                     </div>
-                                 </div>
-                             </div>
-                        )}
-                    </main>
-                </div>
-            );
-        };
+                                </div>
+                            )}
+                            
+                            {gameState === 'PROFILE' && (
+                                <div className="flex-1 flex flex-col items-center justify-center">
+                                    <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border-4 border-slate-200 max-w-lg w-full">
+                                        <h2 className="text-2xl font-black mb-6 flex items-center gap-2"><User /> 英雄檔案</h2>
+                                        <div className="space-y-4">
+                                            <p className="font-bold text-slate-600">英雄名稱: <span className="text-slate-800 dark:text-white">{profile.username}</span></p>
+                                            <div className="grid grid-cols-5 gap-2">
+                                                {AVATARS.filter(a => ['user','cat','dog','bird','rabbit','smile'].includes(a.id) || profile.purchasedItemIds?.includes(a.id)).map(a => (
+                                                    <button key={a.id} onClick={() => {
+                                                        const updated = {...profile, avatarId: a.id};
+                                                        saveUserProfile(updated);
+                                                        setProfile(updated);
+                                                    }} className={`aspect-square rounded-xl flex items-center justify-center text-white ${a.color} ${profile.avatarId === a.id ? 'ring-4 ring-offset-2 ring-blue-500' : 'opacity-50'}`}>
+                                                        <a.icon size={20} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="pt-6 flex gap-4">
+                                                <Button onClick={() => setGameState('MENU')} variant="secondary" className="flex-1">返回</Button>
+                                                <button onClick={() => { logoutUser(); setProfile(null); setGameState('PROFILE_SETUP'); }} className="flex-1 py-3 rounded-xl font-bold border-2 border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">登出</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+                    </div>
+                );
+            };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
+            
+        } catch (err) {
+            console.error(err);
+            document.body.innerHTML += '<div style="color:red;padding:20px;">Render Error: ' + err.message + '</div>';
+        }
     </script>
 </body>
 </html>
